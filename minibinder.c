@@ -1,3 +1,4 @@
+#include "linux/gfp_types.h"
 #include <linux/fs.h>         // Include the header for struct file_operations
 #include <linux/miscdevice.h> // Include the header for misc_register and miscdevice
 #include <linux/mutex.h>
@@ -25,9 +26,57 @@ struct target_pid_entry {
 static LIST_HEAD(target_pid_list);
 static DEFINE_MUTEX(target_pid_list_lock);
 
+/**
+ * get_target_pid_entry - Find or create a target_pid_entry for a given PID.
+ * @pid:    The process ID to look up or create an entry for.
+ * @create: If true, create a new entry if one does not exist.
+ *
+ * This function searches the global target_pid_list for an entry matching the
+ * specified PID. If found, it returns a pointer to the entry. If not found and
+ * 'create' is true, it allocates and initializes a new target_pid_entry,
+ * adds it to the global list, and returns a pointer to it. If allocation fails
+ * or 'create' is false, returns NULL.
+ *
+ * The function uses target_pid_list_lock to ensure thread-safe access to the
+ * global list.
+ *
+ * Return: Pointer to the found or newly created target_pid_entry, or NULL on
+ * failure.
+ */
 static struct target_pid_entry *get_target_pid_entry(pid_t pid, bool create) {
   struct target_pid_entry *entry = NULL;
   mutex_lock(&target_pid_list_lock);
+
+  list_for_each_entry(entry, &target_pid_list, list) {
+    if (entry->pid == pid) {
+      mutex_unlock(&target_pid_list_lock);
+      pr_info("Found existing target_pid_entry for PID %d\n", pid);
+      return entry;
+    }
+  }
+
+  if (!create) {
+    mutex_unlock(&target_pid_list_lock);
+    pr_info(
+        "No existing target_pid_entry found for PID %d and create is false\n",
+        pid);
+    return NULL;
+  }
+
+  entry = kmalloc(sizeof(*entry), GFP_KERNEL);
+  if (!entry) {
+    mutex_unlock(&target_pid_list_lock);
+    pr_err("Failed to allocate memory for target_pid_entry\n");
+    return NULL;
+  }
+
+  entry->pid = pid;
+  INIT_LIST_HEAD(&entry->message_list);
+  mutex_init(&entry->lock);
+  init_waitqueue_head(&entry->waitq);
+  list_add(&entry->list, &target_pid_list);
+  mutex_unlock(&target_pid_list_lock);
+  pr_info("Created new target_pid_entry for PID %d\n", pid);
   return entry;
 }
 
