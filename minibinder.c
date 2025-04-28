@@ -1,4 +1,6 @@
 #include "linux/gfp_types.h"
+#include "linux/list.h"
+#include "linux/uaccess.h"
 #include <linux/fs.h>         // Include the header for struct file_operations
 #include <linux/miscdevice.h> // Include the header for misc_register and miscdevice
 #include <linux/mutex.h>
@@ -90,9 +92,91 @@ static int minibinder_release(struct inode *inode, struct file *file) {
   return 0;
 }
 
+/**
+ * minibinder_read - Read a message for the current process from the minibinder
+ * device.
+ * @file:  Pointer to the file structure.
+ * @buf:   User-space buffer to copy the message into.
+ * @count: Size of the user-space buffer.
+ * @ppos:  File position pointer (unused).
+ *
+ * This function retrieves the next available message for the calling process
+ * (by PID) from its message queue. If no message is available:
+ *   - In non-blocking mode, returns -EAGAIN.
+ *   - In blocking mode, waits until a message arrives or the wait is
+ * interrupted.
+ *
+ * The message format copied to user space is:
+ *   [sender_pid][data_size][data]
+ *
+ * On success, the message is removed from the queue and its memory is freed.
+ *
+ * Return: Number of bytes read on success, negative error code on failure.
+ */
 static ssize_t minibinder_read(struct file *file, char __user *buf,
                                size_t count, loff_t *ppos) {
   pr_info("minibinder device read\n");
+  struct target_pid_entry *entry;
+  struct message *msg;
+  size_t msg_size;
+  int ret = 0;
+
+  entry = get_target_pid_entry(current->pid, true);
+  if (!entry) {
+    pr_err("Failed to get target_pid_entry for current PID\n");
+    return -ENOMEM;
+  }
+
+  mutex_lock(&entry->lock);
+  while (list_empty(&entry->message_list)) {
+    mutex_unlock(&entry->lock);
+    if (file->f_flags & O_NONBLOCK) {
+      pr_info("No messages available, non-blocking read\n");
+      return -EAGAIN;
+    }
+    pr_info("Waiting for messages...\n");
+    if (wait_event_interruptible(entry->waitq,
+                                 !list_empty(&entry->message_list))) {
+      pr_err("Wait event interrupted\n");
+      return -ERESTARTSYS;
+    }
+    mutex_lock(&entry->lock);
+  }
+
+  msg = list_first_entry(&entry->message_list, struct message, list);
+  msg_size = msg->data_size + sizeof(msg->sender_pid) + sizeof(msg->data_size);
+  if (count < msg_size) {
+    pr_err("Buffer too small for message\n");
+    ret = -EINVAL;
+    goto out;
+  }
+
+  if (copy_to_user(buf, &msg->sender_pid, sizeof(msg->sender_pid))) {
+    pr_err("Failed to copy sender PID to user space\n");
+    ret = -EFAULT;
+    goto out;
+  }
+  if (copy_to_user(buf + sizeof(msg->sender_pid), &msg->data_size,
+                   sizeof(msg->data_size))) {
+    pr_err("Failed to copy data size to user space\n");
+    ret = -EFAULT;
+    goto out;
+  }
+  if (copy_to_user(buf + sizeof(msg->sender_pid) + sizeof(msg->data_size),
+                   msg->data, msg->data_size)) {
+    pr_err("Failed to copy message data to user space\n");
+    ret = -EFAULT;
+    goto out;
+  }
+
+  pr_info("Read message from PID %d, size %zu\n", msg->sender_pid,
+          msg->data_size);
+  list_del(&msg->list);
+  kfree(msg);
+  ret += msg_size;
+
+out:
+  mutex_unlock(&entry->lock);
   return 0;
 }
 

@@ -5,7 +5,6 @@ PWD := $(shell pwd)
 
 all:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
-	bash ./get_module_into_fs.sh
 
 clean:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
