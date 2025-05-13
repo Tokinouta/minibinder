@@ -1,19 +1,15 @@
-obj-m += minibinder.o
+# Makefile to build and clean subdirectory Makefiles for lib and kmodule
 
-KERNELDIR ?= ../linux
-PWD := $(shell pwd)
+SUBDIRS := lib kmodule
 
-all:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+.PHONY: all clean $(SUBDIRS)
+
+all: $(SUBDIRS)
+
+$(SUBDIRS):
+	$(MAKE) -C $@
 
 clean:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
-	rm -f *.ko *.mod.c *.mod.o *.o modules.order Module.symvers
-
-install:
-	sudo insmod minibinder.ko
-
-uninstall:
-	sudo rmmod minibinder || true
-
-.PHONY: all clean install uninstall
+	@for dir in $(SUBDIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

@@ -3,7 +3,7 @@
 # Mount the rootfs image, copy the kernel module, and unmount
 mount_and_copy_module() {
   sudo mount -o loop rootfs.img fs
-  sudo cp minibinder.ko fs
+  sudo cp kmodule/minibinder.ko fs
   sudo umount fs
 }
 
