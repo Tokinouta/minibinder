@@ -1,11 +1,13 @@
-#include "linux/gfp_types.h"
-#include "linux/list.h"
-#include "linux/uaccess.h"
-#include <linux/fs.h>         // Include the header for struct file_operations
+#include <linux/fs.h> // Include the header for struct file_operations
+#include <linux/gfp_types.h>
+#include <linux/list.h>
 #include <linux/miscdevice.h> // Include the header for misc_register and miscdevice
 #include <linux/mutex.h>
 #include <linux/mutex_types.h>
 #include <linux/types.h>
+#include <linux/uaccess.h>
+
+#include "binder_ioctl.h"
 
 #define MAX_DATA_SIZE 1024
 
@@ -172,7 +174,8 @@ static ssize_t minibinder_read(struct file *file, char __user *buf,
     goto out;
   }
 
-  if (copy_to_user(buf + sizeof(msg->target_pid) + sizeof(msg->sender_pid) + sizeof(msg->data_size),
+  if (copy_to_user(buf + sizeof(msg->target_pid) + sizeof(msg->sender_pid) +
+                       sizeof(msg->data_size),
                    msg->data, msg->data_size)) {
     pr_err("Failed to copy message data to user space\n");
     ret = -EFAULT;
@@ -247,7 +250,9 @@ static ssize_t minibinder_write(struct file *file, const char __user *buf,
     pr_err("Failed to allocate memory for message\n");
     return -ENOMEM;
   }
-  if (copy_from_user(msg->data, buf + sizeof(target_pid) + sizeof(sender_pid) + sizeof(size_t),
+  if (copy_from_user(msg->data,
+                     buf + sizeof(target_pid) + sizeof(sender_pid) +
+                         sizeof(size_t),
                      msg_size)) {
     pr_err("Failed to copy message data from user space\n");
     kfree(msg);
@@ -279,6 +284,7 @@ static struct file_operations binder_fops = {
     .release = minibinder_release,
     .read = minibinder_read,
     .write = minibinder_write,
+    .unlocked_ioctl = my_ioctl,
 };
 
 static struct miscdevice binder_device = {

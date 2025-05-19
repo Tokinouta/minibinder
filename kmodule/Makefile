@@ -1,10 +1,12 @@
-obj-m += minibinder.o
+obj-m += _minibinder.o
+_minibinder-objs := binder_ioctl.o minibinder.o
 
 KERNELDIR ?= ../../linux
 PWD := $(shell pwd)
 
 all:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+	mv _minibinder.ko minibinder.ko
 
 clean:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean

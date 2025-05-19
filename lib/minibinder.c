@@ -2,8 +2,14 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#define MY_MAGIC 'k'
+#define CMD_SET_VAL _IOW(MY_MAGIC, 1, int)
+#define CMD_GET_VAL _IOR(MY_MAGIC, 2, int)
+#define CMD_DO_ACTION _IO(MY_MAGIC, 3)
 
 int binder_send(pid_t target_pid, const void *data, size_t data_len) {
   int fd = open("/dev/minibinder", O_WRONLY);
@@ -55,4 +61,19 @@ int binder_receive(pid_t *sender_pid, void *data, size_t *data_len) {
 
   memcpy(data, buf + sizeof(pid_t) + sizeof(pid_t) + sizeof(size_t), *data_len);
   return 0;
+}
+
+int set_value(int fd, int value) {
+  ssize_t ret = ioctl(fd, CMD_SET_VAL, &value);
+  return ret < 0 ? -1 : 0;
+}
+
+int get_value(int fd, int *value) {
+  ssize_t ret = ioctl(fd, CMD_GET_VAL, value);
+  return ret < 0 ? -1 : 0;
+}
+
+int do_action(int fd) {
+  ssize_t ret = ioctl(fd, CMD_DO_ACTION);
+  return ret < 0 ? -1 : 0;
 }

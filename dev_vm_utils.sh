@@ -6,6 +6,7 @@ mount_and_copy_module() {
   sudo cp kmodule/minibinder.ko fs
   sudo cp demo/receiver fs
   sudo cp demo/sender fs
+  sudo cp demo/ioctl fs
   sudo umount fs
 }
 

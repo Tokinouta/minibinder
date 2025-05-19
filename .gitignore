@@ -193,3 +193,4 @@ fs/
 # Binaries
 /demo/receiver
 /demo/sender
+/demo/ioctl
