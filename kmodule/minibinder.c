@@ -165,14 +165,14 @@ static ssize_t minibinder_read(struct file *file, char __user *buf,
     goto out;
   }
 
-  if (copy_to_user(buf + sizeof(msg->sender_pid) + sizeof(msg->target_pid),
+  if (copy_to_user(buf + sizeof(msg->target_pid) + sizeof(msg->sender_pid),
                    &msg->data_size, sizeof(msg->data_size))) {
     pr_err("Failed to copy data size to user space\n");
     ret = -EFAULT;
     goto out;
   }
 
-  if (copy_to_user(buf + sizeof(msg->sender_pid) + sizeof(msg->data_size),
+  if (copy_to_user(buf + sizeof(msg->target_pid) + sizeof(msg->sender_pid) + sizeof(msg->data_size),
                    msg->data, msg->data_size)) {
     pr_err("Failed to copy message data to user space\n");
     ret = -EFAULT;
@@ -187,7 +187,7 @@ static ssize_t minibinder_read(struct file *file, char __user *buf,
 
 out:
   mutex_unlock(&entry->lock);
-  return 0;
+  return ret;
 }
 
 /**
@@ -247,7 +247,7 @@ static ssize_t minibinder_write(struct file *file, const char __user *buf,
     pr_err("Failed to allocate memory for message\n");
     return -ENOMEM;
   }
-  if (copy_from_user(msg->data, buf + sizeof(target_pid) + sizeof(size_t),
+  if (copy_from_user(msg->data, buf + sizeof(target_pid) + sizeof(sender_pid) + sizeof(size_t),
                      msg_size)) {
     pr_err("Failed to copy message data from user space\n");
     kfree(msg);

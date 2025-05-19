@@ -24,7 +24,7 @@ int binder_send(pid_t target_pid, const void *data, size_t data_len) {
 
   ssize_t ret = write(fd, buf, sizeof(buf));
   close(fd);
-  return ret == sizeof(buf) ? 0 : -1;
+  return ret == (ssize_t)sizeof(buf) ? 0 : -1;
 }
 
 int binder_receive(pid_t *sender_pid, void *data, size_t *data_len) {
@@ -37,18 +37,21 @@ int binder_receive(pid_t *sender_pid, void *data, size_t *data_len) {
 
   char buf[data_size];
   ssize_t n = read(fd, buf, sizeof(buf));
+  printf("Read %zd bytes from minibinder\n", n);
   close(fd);
 
   if (n < (ssize_t)(sizeof(pid_t) + sizeof(pid_t) + sizeof(size_t)))
     return -1;
 
   *sender_pid = *(pid_t *)buf;
-  *data_len = *(size_t *)(buf + sizeof(pid_t));
+  *data_len = *(size_t *)(buf + sizeof(pid_t) + sizeof(pid_t));
+
+  printf("Received data length: %zu\n", *data_len);
 
   if (*data_len > MAX_DATA_SIZE)
     return -1;
-  if (n != (ssize_t)data_size)
-    return -1;
+  // if (n != (ssize_t)data_size)
+  //   return -1;
 
   memcpy(data, buf + sizeof(pid_t) + sizeof(pid_t) + sizeof(size_t), *data_len);
   return 0;
