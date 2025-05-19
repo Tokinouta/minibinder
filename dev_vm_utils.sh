@@ -4,6 +4,8 @@
 mount_and_copy_module() {
   sudo mount -o loop rootfs.img fs
   sudo cp kmodule/minibinder.ko fs
+  sudo cp demo/receiver fs
+  sudo cp demo/sender fs
   sudo umount fs
 }
 

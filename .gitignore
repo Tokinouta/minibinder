@@ -189,3 +189,7 @@ bzImage
 rootfs.img
 
 fs/
+
+# Binaries
+/demo/receiver
+/demo/sender

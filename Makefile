@@ -1,6 +1,6 @@
 # Makefile to build and clean subdirectory Makefiles for lib and kmodule
 
-SUBDIRS := lib kmodule
+SUBDIRS := lib kmodule demo
 
 .PHONY: all clean $(SUBDIRS)
 
